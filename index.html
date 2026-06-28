@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#46278C">
+<title>Mon cap</title>
+
+<!-- PWA -->
+<meta name="description" content="Garder le cap quand les transports déraillent.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mon cap">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+
+<style>
+  @font-face{font-family:'Atkinson';src:url('https://fonts.gstatic.com/s/atkinsonhyperlegible/v11/9Bt23C1KxNDXMspQ1lPyU89-1h6ONRlW45GE5ZgpewSSbQ.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+  @font-face{font-family:'Atkinson';src:url('https://fonts.gstatic.com/s/atkinsonhyperlegible/v11/9Bt43C1KxNDXMspQ1lPyU89-1h6ONRlW45G055ItWQGCbUWn.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap;}
+
+  :root{
+    --ink:#1A2238;--paper:#FBF7F0;--surface:#F4EEE3;--line:#E0D5C3;
+    --brand:#5B3499;
+    --stop:#1D4E89;--abri:#0E7C86;--proche:#2E6F4E;--urg:#A52A2A;
+    --corps:#C0492F;--alert:#C8741A;--alert-soft:#FBEAD3;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Atkinson',system-ui,sans-serif;background:#E7DECF;color:var(--ink);display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px 16px;line-height:1.4;}
+
+  .phone{width:100%;max-width:420px;height:760px;background:var(--paper);border-radius:34px;box-shadow:0 18px 50px rgba(26,34,56,.22);overflow:hidden;position:relative;display:flex;flex-direction:column;}
+  @media (max-width:460px){body{padding:0;}.phone{max-width:none;border-radius:0;height:100vh;box-shadow:none;}}
+
+  .screen{flex:1;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .screen.active{display:flex;animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.screen.active{animation:none;}}
+  .pad{padding:18px 18px 8px;}
+
+  .hello{font-size:14px;font-weight:700;color:var(--brand);letter-spacing:.06em;text-transform:uppercase;margin:4px 0 4px;}
+  h1{font-size:25px;line-height:1.15;margin:0 0 16px;font-weight:700;}
+
+  .state{display:flex;align-items:center;gap:14px;width:100%;border:1.5px solid var(--line);background:#fff;cursor:pointer;border-radius:18px;padding:16px;margin-bottom:12px;text-align:left;font-family:inherit;min-height:82px;transition:transform .12s ease;}
+  .state:active{transform:scale(.98);}
+  .state:focus-visible{outline:4px solid var(--ink);outline-offset:2px;}
+  .state .chip{flex:0 0 auto;width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .state .t1{font-size:20px;font-weight:700;line-height:1.15;color:var(--ink);}
+  .ch-corps{background:var(--corps);} .ch-bloc{background:var(--alert);} .ch-info{background:var(--stop);} .ch-meteo{background:var(--abri);} .ch-rentrer{background:var(--proche);}
+
+  .net{flex:0 0 auto;padding:12px 18px 16px;background:linear-gradient(to top,var(--paper) 70%,rgba(251,247,240,0));border-top:1px solid var(--line);}
+  .net-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;border:none;cursor:pointer;border-radius:18px;padding:16px;background:var(--proche);color:#fff;font-family:inherit;font-size:21px;font-weight:700;min-height:74px;}
+  .net-btn:active{transform:scale(.98);}
+  .net-btn:focus-visible{outline:4px solid var(--ink);outline-offset:3px;}
+  .stamp{text-align:center;font-size:13px;color:#8A8E9C;margin-top:8px;}
+  .stamp .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--proche);margin-right:6px;vertical-align:middle;}
+
+  .back{display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:18px;font-weight:700;color:var(--ink);padding:8px 4px;margin:0 0 10px -4px;border-radius:10px;}
+  .back:focus-visible{outline:3px solid var(--ink);outline-offset:2px;}
+  .scr-title{font-size:24px;font-weight:700;margin:0 0 14px;line-height:1.15;}
+
+  .tint{font-size:16px;font-weight:700;color:var(--alert);background:var(--alert-soft);border-radius:14px;padding:12px 14px;margin:0 0 16px;display:flex;gap:8px;align-items:flex-start;}
+
+  .act{display:flex;align-items:center;gap:15px;width:100%;border:none;cursor:pointer;border-radius:18px;padding:18px;margin-bottom:12px;color:#fff;text-align:left;font-family:inherit;min-height:88px;text-decoration:none;transition:transform .12s ease;}
+  .act:active{transform:scale(.98);}
+  .act:focus-visible{outline:4px solid var(--ink);outline-offset:3px;}
+  .act .ic{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+  .act .t1{font-size:21px;font-weight:700;line-height:1.12;}
+  .act .t2{font-size:15px;opacity:.92;margin-top:2px;}
+  .a-abri{background:var(--abri);} .a-proche{background:var(--proche);} .a-stop{background:var(--stop);} .a-urg{background:var(--urg);}
+
+  .prio{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8A8E9C;margin:6px 0 8px;}
+
+  .fallback{background:var(--ink);color:#fff;border-radius:16px;padding:16px;margin:6px 0 14px;}
+  .fallback .lab{color:#A9B0C8;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin:0 0 6px;}
+  .fallback .msg{font-size:18px;font-weight:700;line-height:1.3;margin:0;}
+
+  .ask{font-size:21px;font-weight:700;margin:8px 0 14px;}
+  .yn{display:flex;gap:12px;margin-bottom:8px;}
+  .yn button{flex:1;font-family:inherit;font-size:22px;font-weight:700;cursor:pointer;border:none;border-radius:18px;padding:24px 10px;color:#fff;min-height:96px;}
+  .yn .y{background:var(--proche);} .yn .n{background:var(--corps);}
+  .yn button:active{transform:scale(.97);}
+  .yn button:focus-visible{outline:4px solid var(--ink);outline-offset:3px;}
+  .reset{background:none;border:none;cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;color:var(--stop);text-decoration:underline;padding:8px 4px;margin-bottom:8px;}
+  .calm{background:var(--abri);color:#fff;border-radius:16px;padding:16px;font-size:18px;font-weight:700;text-align:center;line-height:1.3;margin-bottom:14px;}
+  .hidden{display:none;}
+  .note{font-size:14px;color:#6B6F80;margin:2px 0 14px;}
+</style>
+</head>
+<body>
+  <div class="phone">
+
+    <!-- ====== ACCUEIL : LES ÉTATS ====== -->
+    <section class="screen active" id="home" aria-label="Accueil">
+      <div class="pad" style="flex:1;">
+        <div class="hello">Mon cap</div>
+        <h1>Ça déraille&nbsp;? Dites-le<br>avec vos propres mots.</h1>
+
+        <button class="state" onclick="goS1()">
+          <span class="chip ch-corps"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 5.6a5.5 5.5 0 00-8.8-1.4L12 4.4l-.1-.2A5.5 5.5 0 003 8c0 5 9 12 9 12s9-7 9-12c0-.9-.2-1.7-.2-2.4z"/></svg></span>
+          <span class="t1">Je ne me sens pas bien</span>
+        </button>
+
+        <button class="state" onclick="go('s2')">
+          <span class="chip ch-bloc"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg></span>
+          <span class="t1">Je ne peux plus avancer</span>
+        </button>
+
+        <button class="state" onclick="go('s3')">
+          <span class="chip ch-info"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg></span>
+          <span class="t1">Je ne comprends pas ce qui se passe</span>
+        </button>
+
+        <button class="state" onclick="go('s4')">
+          <span class="chip ch-meteo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M5 12H3M6 6L5 5M18 6l1-1"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span class="t1">J'ai trop chaud ou trop froid</span>
+        </button>
+
+        <button class="state" onclick="go('s5')">
+          <span class="chip ch-rentrer"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+          <span class="t1">Je veux juste rentrer</span>
+        </button>
+      </div>
+
+      <!-- filet épinglé -->
+      <div class="net">
+        <button class="net-btn" onclick="go('s6')">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17h.01M12 13a2.5 2.5 0 10-2.5-2.9"/><circle cx="12" cy="12" r="9"/></svg>
+          Je ne sais pas — aidez-moi
+        </button>
+        <div class="stamp"><span class="dot"></span>Fonctionne même sans réseau</div>
+      </div>
+    </section>
+
+    <!-- ====== S1 : JE NE ME SENS PAS BIEN ====== -->
+    <section class="screen" id="s1" aria-label="Je ne me sens pas bien">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">Je ne me sens pas bien</h2>
+
+        <div id="s1q">
+          <p class="ask">Pouvez-vous marcher&nbsp;?</p>
+          <div class="yn">
+            <button class="y" onclick="s1ans('oui')">Oui</button>
+            <button class="n" onclick="s1ans('non')">Non</button>
+          </div>
+          <p class="note">Une seule question — elle change l'aide qu'on vous propose.</p>
+        </div>
+
+        <div id="s1oui" class="hidden">
+          <button class="reset" onclick="s1reset()">‹ Changer ma réponse</button>
+          <p class="prio">Faites d'abord ceci</p>
+          <a class="act a-abri" href="#" onclick="return false;">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+            <span><span class="t1">M'asseoir tout près</span><span class="t2">Bibliothèque · 3 min</span></span>
+          </a>
+          <a class="act a-proche" href="#" onclick="return false;">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L16 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg></span>
+            <span><span class="t1">Appeler Marie</span><span class="t2">Ma fille</span></span>
+          </a>
+          <a class="act a-urg" href="#" onclick="return false;">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></span>
+            <span><span class="t1">Si ça s'aggrave · 112</span><span class="t2">Secours médical</span></span>
+          </a>
+        </div>
+
+        <div id="s1non" class="hidden">
+          <button class="reset" onclick="s1reset()">‹ Changer ma réponse</button>
+          <div class="calm">Restez où vous êtes.<br>Ne forcez pas. On appelle de l'aide.</div>
+          <p class="prio">Appelez maintenant</p>
+          <a class="act a-urg" href="#" onclick="return false;">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></span>
+            <span><span class="t1">Secours · 112</span><span class="t2">Dites où vous êtes, ou montrez l'écran ci-dessous</span></span>
+          </a>
+          <a class="act a-proche" href="#" onclick="return false;">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L16 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg></span>
+            <span><span class="t1">Appeler Marie</span><span class="t2">Ma fille</span></span>
+          </a>
+          <div class="fallback"><p class="lab">Montrez ceci à quelqu'un</p><p class="msg">« Je ne me sens pas bien. Pouvez-vous m'aider et rester près de moi&nbsp;? »</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== S2 : JE NE PEUX PLUS AVANCER ====== -->
+    <section class="screen" id="s2" aria-label="Je ne peux plus avancer">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">Je ne peux plus avancer</h2>
+        <p class="prio">Choisissez ce qui vous aide</p>
+        <a class="act a-abri" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+          <span><span class="t1">M'asseoir tout près</span><span class="t2">Bibliothèque · 3 min · siège</span></span>
+        </a>
+        <a class="act a-stop" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13l-4-4M16 12l-4 4M21 5v14"/></svg></span>
+          <span><span class="t1">Trouver une autre route</span><span class="t2">Sans escalier ni longue marche</span></span>
+        </a>
+        <a class="act a-proche" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L16 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg></span>
+          <span><span class="t1">Appeler Marie</span><span class="t2">Ma fille</span></span>
+        </a>
+        <div class="fallback"><p class="lab">Si la position ne marche pas</p><p class="msg">Montrez ceci&nbsp;: « Bonjour, où puis-je m'asseoir au calme tout près&nbsp;? »</p></div>
+      </div>
+    </section>
+
+    <!-- ====== S3 : JE NE COMPRENDS PAS ====== -->
+    <section class="screen" id="s3" aria-label="Je ne comprends pas ce qui se passe">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">Ce qui se passe aujourd'hui</h2>
+        <div class="tint">Exemple&nbsp;: tram 8 → remplacé par des bus.</div>
+        <p class="note" style="margin-top:-6px;">Information donnée à titre d'exemple pour l'instant.</p>
+        <p class="prio">Sur le terrain</p>
+        <a class="act a-stop" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6 17V7a2 2 0 012-2h8a2 2 0 012 2v10M9 9h6"/></svg></span>
+          <span><span class="t1">Appeler Info STIB</span><span class="t2">070 23 2000</span></span>
+        </a>
+        <div class="fallback"><p class="lab">Montrez ceci à quelqu'un</p><p class="msg">« Bonjour, mon tram ou bus ne vient pas. Savez-vous ce qui se passe&nbsp;? »</p></div>
+      </div>
+    </section>
+
+    <!-- ====== S4 : TROP CHAUD / TROP FROID ====== -->
+    <section class="screen" id="s4" aria-label="J'ai trop chaud ou trop froid">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">J'ai trop chaud ou trop froid</h2>
+        <div class="calm">Cherchez un endroit tempéré et buvez un peu d'eau.</div>
+        <p class="prio">Le plus proche</p>
+        <a class="act a-abri" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+          <span><span class="t1">M'abriter tout près</span><span class="t2">Bibliothèque · 3 min</span></span>
+        </a>
+        <div class="fallback"><p class="lab">Si la position ne marche pas</p><p class="msg">Cherchez une grande entrée autour de vous : magasin, banque, hall.</p></div>
+      </div>
+    </section>
+
+    <!-- ====== S5 : JE VEUX RENTRER ====== -->
+    <section class="screen" id="s5" aria-label="Je veux juste rentrer">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">Rentrer chez vous</h2>
+        <p class="prio">Deux façons, à vous de choisir</p>
+        <a class="act a-stop" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+          <span><span class="t1">Itinéraire vers chez vous</span><span class="t2">Adapté aux perturbations</span></span>
+        </a>
+        <a class="act a-proche" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L16 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg></span>
+          <span><span class="t1">Appeler Marie</span><span class="t2">Qu'elle vienne ou vous guide</span></span>
+        </a>
+        <a class="act a-stop" href="#" onclick="return false;" style="background:#5A5560;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11M5 11h14v6H5zM7 17v2M17 17v2"/></svg></span>
+          <span><span class="t1">Appeler un taxi</span><span class="t2">Si rien ne circule</span></span>
+        </a>
+        <p class="note">Votre adresse sera enregistrée tranquillement, à l'avance — rien à taper dans l'urgence.</p>
+      </div>
+    </section>
+
+    <!-- ====== S6 : JE NE SAIS PAS (filet) ====== -->
+    <section class="screen" id="s6" aria-label="Je ne sais pas, aidez-moi">
+      <div class="pad">
+        <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
+        <h2 class="scr-title">On s'en occupe.</h2>
+        <div class="calm">Pas besoin de tout comprendre.<br>Voici les deux choses sûres à faire.</div>
+        <a class="act a-proche" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L16 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg></span>
+          <span><span class="t1">Appeler Marie</span><span class="t2">Ma fille — elle saura aider</span></span>
+        </a>
+        <a class="act a-abri" href="#" onclick="return false;">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
+          <span><span class="t1">M'asseoir tout près</span><span class="t2">Bibliothèque · 3 min</span></span>
+        </a>
+        <div class="fallback"><p class="lab">Montrez ceci à quelqu'un</p><p class="msg">« Bonjour, je ne retrouve plus mon chemin. Pouvez-vous m'aider&nbsp;? »</p></div>
+      </div>
+    </section>
+  </div>
+
+<script>
+  function go(id){
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+    var el=document.getElementById(id);el.classList.add('active');el.scrollTop=0;
+  }
+  function goS1(){ s1reset(); go('s1'); }
+  function s1ans(a){
+    document.getElementById('s1q').classList.add('hidden');
+    document.getElementById('s1oui').classList.toggle('hidden', a!=='oui');
+    document.getElementById('s1non').classList.toggle('hidden', a!=='non');
+  }
+  function s1reset(){
+    document.getElementById('s1q').classList.remove('hidden');
+    document.getElementById('s1oui').classList.add('hidden');
+    document.getElementById('s1non').classList.add('hidden');
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('./service-worker.js', {scope:'./'}).catch(function(){});
+    });
+  }
+</script>
+</body>
+</html>
