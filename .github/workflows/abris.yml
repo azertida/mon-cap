@@ -1,1 +1,36 @@
+name: Construire abris.json
 
+on:
+  schedule:
+    - cron: "37 5,16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Construire abris.json
+        run: python build_abris.py --pretty
+
+      - name: Committer uniquement si le fichier a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- abris.json; then
+            echo "Aucun changement dans abris.json — rien à committer."
+          else
+            git add abris.json
+            git commit -m "Mise a jour abris.json ($(date -u +%Y-%m-%dT%H:%MZ))"
+            git push
+          fi
