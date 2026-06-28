@@ -2,7 +2,7 @@
 // Cache-first sur la coquille de l'app : tout le cœur fonctionne hors-ligne.
 // (Au niveau 2, on ajoutera ici la mise en cache horodatée de abris.json.)
 
-const CACHE = 'mon-cap-v1';
+const CACHE = 'mon-cap-v2';
 const CORE = [
   './',
   './index.html',
