@@ -2,17 +2,19 @@
   Mon cap — récolte des abris candidats sur une commune.
   Testable tel quel sur https://overpass-turbo.eu (colle, puis "Exécuter").
 
-  Astuce robustesse : le filtre par nom peut être ambigu.
-  Pour Woluwe-Saint-Lambert, on peut viser la relation administrative
-  directement via son identifiant OSM (plus sûr qu'un nom) :
-     area(3600000000 + 58259)->.zone;   // 58259 = relation OSM de WSL
-  Si tu préfères rester lisible, garde la version par nom ci-dessous.
+  Astuce robustesse : à Bruxelles, le nom OSM des communes est bilingue
+  (« Woluwe-Saint-Lambert - Sint-Lambrechts-Woluwe »), donc un filtre par nom
+  simple échoue. On vise la relation directement par son identifiant :
+     area(3600060167)->.zone;   // 60167 = relation OSM de WSL
 */
 
 [out:json][timeout:25];
 
-// --- Zone : Woluwe-Saint-Lambert (commune, admin_level 8) ---
-area["name"="Woluwe-Saint-Lambert"]["admin_level"="8"]->.zone;
+// --- Zone : Woluwe-Saint-Lambert ---
+// On vise la commune par son identifiant de relation OSM (60167), insensible
+// au nom bilingue bruxellois (« Woluwe-Saint-Lambert - Sint-Lambrechts-Woluwe »).
+// Identifiant de zone = 3 600 000 000 + n° de relation.
+area(3600060167)->.zone;
 
 // --- Lieux candidats comme abris ---
 (
