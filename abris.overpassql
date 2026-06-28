@@ -32,6 +32,10 @@ area(3600060167)->.zone;
 
   // lieux de culte (frais l'été SI ouverts — à vérifier sur le terrain)
   nwr["amenity"="place_of_worship"](area.zone);
+
+  // stations de métro (abri par défaut, repère nommé : « le métro Tomberg »)
+  nwr["railway"="station"]["station"="subway"](area.zone);
+  nwr["railway"="station"]["subway"="yes"](area.zone);
 );
 
 // "center" renvoie un point unique pour les ways/relations (bâtiments)

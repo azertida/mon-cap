@@ -46,6 +46,10 @@ CATEGORIES = {
     "amenity=place_of_worship":  {"key": "place_of_worship", "label": "Lieu de culte",        "dynamic_offhours": False},
 }
 
+# Le métro se reconnaît à une combinaison de tags (railway=station + type métro),
+# donc il est traité à part plutôt que dans le dictionnaire simple ci-dessus.
+METRO = {"key": "metro", "label": "Station de métro", "dynamic_offhours": False}
+
 # --- Outils -----------------------------------------------------------------
 
 def load_query() -> str:
@@ -74,6 +78,11 @@ def run_overpass(query: str, attempts: int = 3) -> dict:
 
 def category_of(tags: dict):
     """Retrouve la catégorie d'un élément à partir de ses tags."""
+    # cas spécial : station de métro (railway=station + type métro)
+    if tags.get("railway") == "station" and (
+        tags.get("station") == "subway" or tags.get("subway") == "yes"
+    ):
+        return METRO
     for combo, meta in CATEGORIES.items():
         k, v = combo.split("=")
         if tags.get(k) == v:
