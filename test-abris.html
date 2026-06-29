@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Test — abris.json</title>
+<style>
+  @font-face{font-family:'Atkinson';src:url('https://fonts.gstatic.com/s/atkinsonhyperlegible/v11/9Bt23C1KxNDXMspQ1lPyU89-1h6ONRlW45GE5ZgpewSSbQ.woff2') format('woff2');font-weight:400;font-display:swap;}
+  @font-face{font-family:'Atkinson';src:url('https://fonts.gstatic.com/s/atkinsonhyperlegible/v11/9Bt43C1KxNDXMspQ1lPyU89-1h6ONRlW45G055ItWQGCbUWn.woff2') format('woff2');font-weight:700;font-display:swap;}
+  :root{--ink:#1A2238;--paper:#FBF7F0;--surface:#fff;--line:#E0D5C3;--brand:#5B3499;--muted:#6B6F80;--ok:#2E6F4E;--warn:#C8741A;}
+  *{box-sizing:border-box;}
+  body{font-family:'Atkinson',system-ui,sans-serif;background:var(--paper);color:var(--ink);margin:0;padding:18px;line-height:1.4;max-width:760px;margin:0 auto;}
+  h1{font-size:24px;margin:4px 0 2px;}
+  .ey{color:var(--brand);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
+  .status{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0 22px;font-size:15px;}
+  .status b{font-size:22px;}
+  .status .src{display:inline-block;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;margin-left:6px;}
+  .src-net{background:rgba(46,111,79,.15);color:var(--ok);}
+  .src-cache{background:rgba(200,116,26,.15);color:var(--warn);}
+  .grp-h{font-size:18px;font-weight:700;margin:22px 0 10px;border-bottom:2px solid var(--line);padding-bottom:6px;}
+  .grp-h span{color:var(--muted);font-weight:400;font-size:15px;}
+  .ab{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+  .ab .nm{font-weight:700;font-size:17px;}
+  .ab .meta{font-size:14px;color:var(--muted);margin-top:3px;}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;margin:4px 6px 0 0;}
+  .t-acc{background:rgba(46,111,79,.15);color:var(--ok);}
+  .t-lim{background:rgba(200,116,26,.15);color:var(--warn);}
+  .t-no{background:rgba(165,42,42,.12);color:#A52A2A;}
+  .t-unk{background:#EEE8DC;color:var(--muted);}
+  .t-info{background:#E9E2F3;color:var(--brand);}
+  .t-noh{background:#EEE8DC;color:var(--muted);}
+  .err{background:#fdecea;border:1px solid #f5c2bc;color:#A52A2A;border-radius:12px;padding:16px;font-weight:700;}
+</style>
+</head>
+<body>
+  <div class="ey">Mon cap · page de test</div>
+  <h1>Lecture de abris.json</h1>
+  <div class="status" id="status">Chargement…</div>
+  <div id="out"></div>
+
+<script>
+  var KEY = 'moncap:abris';            // préfixe : origine partagée avec les radars
+  var ORDER = ['pharmacy','metro','mall','library','townhall','community_centre','place_of_worship'];
+
+  function fmtDate(iso){
+    try { return new Date(iso).toLocaleString('fr-BE',{dateStyle:'short',timeStyle:'short'}); }
+    catch(e){ return iso || '—'; }
+  }
+  function wheelchairTag(w){
+    if(w==='yes')   return '<span class="tag t-acc">accessible</span>';
+    if(w==='limited')return '<span class="tag t-lim">accès limité</span>';
+    if(w==='no')    return '<span class="tag t-no">non accessible</span>';
+    return '<span class="tag t-unk">accessibilité inconnue</span>';
+  }
+
+  function render(payload, source){
+    var st = document.getElementById('status');
+    var srcClass = source==='réseau' ? 'src-net' : 'src-cache';
+    var srcLabel = source==='réseau' ? 'réseau' : 'hors-ligne (dernière copie)';
+    st.innerHTML = '<b>'+(payload.count||payload.abris.length)+'</b> abris · '
+      + (payload.area||'') + '<br>à jour au ' + fmtDate(payload.generated_at)
+      + ' <span class="src '+srcClass+'">'+srcLabel+'</span>';
+
+    var abris = payload.abris || [];
+    var groups = {};
+    abris.forEach(function(a){ (groups[a.category]=groups[a.category]||[]).push(a); });
+
+    var cats = ORDER.filter(function(c){return groups[c];})
+      .concat(Object.keys(groups).filter(function(c){return ORDER.indexOf(c)<0;}));
+
+    var html = '';
+    cats.forEach(function(cat){
+      var list = groups[cat];
+      var label = list[0].label_fr || cat;
+      html += '<div class="grp-h">'+label+' <span>· '+list.length+'</span></div>';
+      list.forEach(function(a){
+        var meta = [];
+        if(a.opening_hours) meta.push(a.opening_hours);
+        html += '<div class="ab"><div class="nm">'+a.name+'</div>';
+        if(meta.length) html += '<div class="meta">'+meta.join(' · ')+'</div>';
+        html += '<div>';
+        html += wheelchairTag(a.wheelchair);
+        if(a.toilets) html += '<span class="tag t-info">toilettes</span>';
+        if(!a.opening_hours) html += '<span class="tag t-noh">horaires inconnus</span>';
+        if(a.dynamic_offhours) html += '<span class="tag t-info">garde : voir source</span>';
+        html += '</div></div>';
+      });
+    });
+    document.getElementById('out').innerHTML = html;
+  }
+
+  function load(){
+    // réseau d'abord (avec anti-cache pour ne pas tomber sur une copie figée)
+    fetch('./abris.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(data){
+        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){}
+        render(data, 'réseau');
+      })
+      .catch(function(){
+        // hors-ligne : on relit la dernière copie enregistrée
+        var cached = null;
+        try { cached = localStorage.getItem(KEY); } catch(e){}
+        if(cached){ render(JSON.parse(cached), 'cache'); }
+        else {
+          document.getElementById('status').innerHTML =
+            '<div class="err">Impossible de charger abris.json, et aucune copie enregistrée. '
+            + 'Connecte-toi une première fois pour remplir le cache.</div>';
+        }
+      });
+  }
+  load();
+</script>
+</body>
+</html>
