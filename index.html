@@ -85,6 +85,18 @@
   .calm{background:var(--abri);color:#fff;border-radius:16px;padding:16px;font-size:18px;font-weight:700;text-align:center;line-height:1.3;margin-bottom:14px;}
   .hidden{display:none;}
   .note{font-size:14px;color:#6B6F80;margin:2px 0 14px;}
+  /* Fiche abri (superposition) */
+  .sheet{position:absolute;inset:0;background:rgba(26,34,56,.45);display:none;align-items:flex-end;z-index:50;}
+  .sheet.active{display:flex;}
+  .sheet-card{background:var(--paper);width:100%;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));}
+  .sheet-close{background:none;border:none;font-family:inherit;font-size:16px;font-weight:700;color:var(--stop);padding:8px 4px;margin:0 0 6px -4px;cursor:pointer;}
+  .sheet-nm{font-size:22px;margin:0 0 4px;font-weight:700;}
+  .sheet-st{font-weight:700;margin:0 0 2px;color:var(--abri);}
+  .sheet-d{color:#6B6F80;margin:0 0 12px;font-weight:700;}
+  .sheet-info{list-style:none;padding:0;margin:0 0 14px;}
+  .sheet-info li{padding:9px 0;border-bottom:1px solid var(--line);font-size:16px;}
+  .sheet-tel{display:block;text-align:center;background:var(--proche);color:#fff;border-radius:14px;padding:14px;font-weight:700;text-decoration:none;margin-bottom:10px;}
+  .sheet-go{display:block;text-align:center;background:var(--abri);color:#fff;border-radius:14px;padding:16px;font-weight:700;text-decoration:none;font-size:18px;}
 </style>
 </head>
 <body>
@@ -270,6 +282,11 @@
         <div class="fallback"><p class="lab">Montrez ceci à quelqu'un</p><p class="msg">« Bonjour, je suis en difficulté. Pouvez-vous m'aider, s'il vous plaît&nbsp;? »</p></div>
       </div>
     </section>
+
+    <!-- Fiche abri (superposition) -->
+    <div class="sheet" id="sheet" aria-hidden="true" onclick="if(event.target===this)closeSheet()">
+      <div class="sheet-card" id="sheetBody"></div>
+    </div>
   </div>
 
 <script src="./opening_hours.js"></script>
@@ -303,6 +320,32 @@
   function distLabel(d){ return d<1000 ? (Math.round(d/10)*10)+' m' : (d/1000).toFixed(1)+' km'; }
   function walkMin(d){ return Math.max(1, Math.round(d/75)); }
 
+  // ---- Fiche abri + itinéraire OSM (à pied) ----
+  var S2_LIST=[], S2_POS=null;
+  function wheelchairText(w){ return w==='yes'?'Accessible en fauteuil':w==='limited'?'Accès fauteuil limité':w==='no'?'Non accessible en fauteuil':'Accessibilité non renseignée'; }
+  function statusText(st){ return st==='open'?'Ouvert maintenant':st==='garde'?'Hors horaires — voir pharmacie de garde':st==='closed'?'Fermé maintenant':'Horaire non renseigné'; }
+  function osmFoot(from,to){ return 'https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route='+from.lat+'%2C'+from.lon+'%3B'+to.lat+'%2C'+to.lon; }
+  function openSheet(i){
+    var a=S2_LIST[i]; if(!a) return;
+    var h='<button class="sheet-close" onclick="closeSheet()">‹ Fermer</button>';
+    h+='<h3 class="sheet-nm">'+a.name+'</h3>';
+    h+='<p class="sheet-st">'+statusText(a._st)+'</p>';
+    h+='<p class="sheet-d">'+distLabel(a._d)+' · ≈ '+walkMin(a._d)+' min à pied</p>';
+    h+='<ul class="sheet-info">';
+    h+='<li>'+wheelchairText(a.wheelchair)+'</li>';
+    if(a.toilets) h+='<li>Toilettes</li>';
+    if(a.bench) h+='<li>Banc pour s\'asseoir</li>';
+    if(a.drinking_water) h+='<li>Eau potable</li>';
+    if(a.air_conditioning) h+='<li>Climatisé</li>';
+    if(a.opening_hours) h+='<li>Horaires : '+a.opening_hours+'</li>';
+    h+='</ul>';
+    if(a.phone) h+='<a class="sheet-tel" href="tel:'+a.phone.replace(/\s/g,'')+'">Appeler : '+a.phone+'</a>';
+    h+='<a class="sheet-go" href="'+osmFoot(S2_POS,a)+'" target="_blank" rel="noopener">M\'y emmener (à pied)</a>';
+    document.getElementById('sheetBody').innerHTML=h;
+    document.getElementById('sheet').classList.add('active');
+  }
+  function closeSheet(){ document.getElementById('sheet').classList.remove('active'); }
+
   function getAbris(){
     return fetch('./abris.json', {cache:'no-store'})   // le service worker gère réseau-d'abord
       .then(function(r){ if(!r.ok) throw 0; return r.json(); })
@@ -310,9 +353,9 @@
       .catch(function(){ try{ var c=localStorage.getItem('moncap:abris'); if(c) return (JSON.parse(c).abris)||[]; }catch(e){} return null; });
   }
 
-  function abriCard(a, prominent){
+  function abriCard(a, prominent, idx){
     var t2 = distLabel(a._d)+' · ≈ '+walkMin(a._d)+' min' + (a._st==='open' ? ' · ouvert' : ' · horaires non garantis');
-    return '<a class="act a-abri" href="#" onclick="return false;"'+(prominent?'':' style="opacity:.92"')+'>'
+    return '<a class="act a-abri" href="#" onclick="openSheet('+idx+');return false;"'+(prominent?'':' style="opacity:.92"')+'>'
       + '<span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>'
       + '<span><span class="t1">'+a.name+'</span><span class="t2">'+t2+'</span></span></a>';
   }
@@ -321,15 +364,11 @@
     var prio=document.getElementById('s2prio'), box=document.getElementById('s2abris');
     abris.forEach(function(a){ a._st=statusOf(a); a._d=distM(lat,lon,a.lat,a.lon); });
     var open=abris.filter(function(a){return a._st==='open';}).sort(function(x,y){return x._d-y._d;}).slice(0,3);
-    var html='';
-    if(open.length){
-      prio.textContent='M\'abriter — le plus proche ouvert';
-      open.forEach(function(a,i){ html+=abriCard(a, i===0); });
-    } else {
-      var near=abris.slice().sort(function(x,y){return x._d-y._d;}).slice(0,3);
-      prio.textContent='Aucun ouvert tout près — les plus proches';
-      near.forEach(function(a,i){ html+=abriCard(a, i===0); });
-    }
+    var shown;
+    if(open.length){ prio.textContent='M\'abriter — le plus proche ouvert'; shown=open; }
+    else { shown=abris.slice().sort(function(x,y){return x._d-y._d;}).slice(0,3); prio.textContent='Aucun ouvert tout près — les plus proches'; }
+    S2_LIST=shown; S2_POS={lat:lat,lon:lon};
+    var html=''; shown.forEach(function(a,i){ html+=abriCard(a, i===0, i); });
     box.innerHTML=html;
   }
 
