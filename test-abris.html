@@ -95,39 +95,59 @@
       +'<div class="open-now">● '+open+' ouverts maintenant</div>';
   }
 
-  // Vue groupée (sans position)
-  function renderGrouped(payload, source){
-    var abris=(payload.abris||[]).map(function(a){a._st=statusOf(a);return a;});
-    setStatus(payload, source);
-    document.getElementById('geomsg').innerHTML='';
-    var groups={}; abris.forEach(function(a){(groups[a.category]=groups[a.category]||[]).push(a);});
-    var cats=ORDER.filter(function(c){return groups[c];}).concat(Object.keys(groups).filter(function(c){return ORDER.indexOf(c)<0;}));
-    var html='';
-    cats.forEach(function(cat){
-      var list=groups[cat].sort(function(x,y){return (STATUS[x._st].rank-STATUS[y._st].rank)||x.name.localeCompare(y.name);});
-      html+='<div class="grp-h">'+(list[0].label_fr||cat)+' <span>· '+list.length+'</span></div>';
-      list.forEach(function(a){ html+=abCard(a,false); });
-    });
-    document.getElementById('out').innerHTML=html;
+  // Tri : par proximité si position connue, sinon par nom
+  function sortFn(withDist){
+    return function(x,y){ return withDist ? (x._d - y._d) : x.name.localeCompare(y.name); };
   }
 
-  // Vue par proximité (avec position)
-  function renderNearest(payload){
-    var abris=(payload.abris||[]).map(function(a){a._st=statusOf(a); a._d=distM(POS.lat,POS.lon,a.lat,a.lon); return a;});
-    setStatus(payload,'réseau');
-    abris.sort(function(x,y){return x._d-y._d;});
-    var nearestOpen=abris.filter(function(a){return a._st==='open';})[0];
+  // Affichage unique : Ouverts → Pharmacies de garde → Horaire non renseigné (par catégorie) → fermés masqués
+  function renderList(payload, source){
+    var withDist = !!POS;
+    var abris=(payload.abris||[]).map(function(a){
+      a._st=statusOf(a);
+      a._d = withDist ? distM(POS.lat,POS.lon,a.lat,a.lon) : null;
+      return a;
+    });
+    setStatus(payload, source);
+
+    var open   = abris.filter(function(a){return a._st==='open';}).sort(sortFn(withDist));
+    var garde  = abris.filter(function(a){return a._st==='garde';}).sort(sortFn(withDist));
+    var unknown= abris.filter(function(a){return a._st==='unknown';});
+    var closedN= abris.filter(function(a){return a._st==='closed';}).length;
+
     var html='';
-    if(nearestOpen){
-      html+='<div class="near">Le plus proche <b>ouvert</b> : <b>'+nearestOpen.name+'</b><br>'
-        +distLabel(nearestOpen._d)+' · ≈ '+walkMin(nearestOpen._d)+' min · '+(nearestOpen.label_fr||'')+'</div>';
-    } else {
-      html+='<div class="near" style="background:#FBEAD3;border-color:#f0dcbc">Aucun abri <b>ouvert</b> tout près pour l\'instant. Le plus proche est <b>'+abris[0].name+'</b> ('+distLabel(abris[0]._d)+').</div>';
+
+    // 1. Ouverts maintenant — à plat, par proximité
+    html+='<div class="grp-h">Ouverts maintenant <span>· '+open.length+'</span></div>';
+    if(open.length){ open.forEach(function(a){ html+=abCard(a,withDist); }); }
+    else { html+='<div class="ab" style="text-align:center;color:var(--muted)">Aucun lieu ouvert pour l\'instant.</div>'; }
+
+    // 2. Pharmacies de garde — bloc à part
+    if(garde.length){
+      html+='<div class="grp-h">Pharmacies — garde (hors horaires) <span>· '+garde.length+'</span></div>';
+      garde.forEach(function(a){ html+=abCard(a,withDist); });
     }
-    html+='<div class="grp-h">Tous, du plus proche au plus loin <span>· '+abris.length+'</span></div>';
-    abris.forEach(function(a){ html+=abCard(a,true); });
+
+    // 3. Horaire non renseigné — groupé par catégorie
+    if(unknown.length){
+      var groups={}; unknown.forEach(function(a){(groups[a.category]=groups[a.category]||[]).push(a);});
+      var cats=ORDER.filter(function(c){return groups[c];}).concat(Object.keys(groups).filter(function(c){return ORDER.indexOf(c)<0;}));
+      html+='<div class="grp-h" style="margin-top:26px">Horaire non renseigné</div>';
+      cats.forEach(function(cat){
+        var list=groups[cat].sort(sortFn(withDist));
+        html+='<div class="grp-h" style="font-size:16px;border:none;margin:14px 0 6px">'+(list[0].label_fr||cat)+' <span>· '+list.length+'</span></div>';
+        list.forEach(function(a){ html+=abCard(a,withDist); });
+      });
+    }
+
+    // 4. Fermés — masqués (note discrète)
+    if(closedN){
+      html+='<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:18px">'
+        + closedN + (closedN>1?' lieux fermés masqués':' lieu fermé masqué') + '</div>';
+    }
+
     document.getElementById('out').innerHTML=html;
-    document.getElementById('btnAll').style.display='';
+    document.getElementById('btnAll').style.display = withDist ? '' : 'none';
   }
 
   // Repli humain quand la position manque — ne bloque jamais
@@ -135,28 +155,28 @@
     document.getElementById('geomsg').innerHTML='<div class="geomsg">'+msg
       +'<div class="q">À montrer à quelqu\'un : « Bonjour, je suis en difficulté. Pouvez-vous m\'aider, s\'il vous plaît ? »</div>'
       +'La liste complète reste disponible ci-dessous.</div>';
-    if(LAST) renderGrouped(LAST.payload, LAST.source);
+    if(LAST) renderList(LAST.payload, LAST.source);
   }
 
   document.getElementById('btnGeo').addEventListener('click', function(){
     if(!navigator.geolocation){ geoFallback('La localisation n\'est pas disponible sur cet appareil. '); return; }
     document.getElementById('geomsg').innerHTML='<div class="geomsg">Recherche de votre position…</div>';
     navigator.geolocation.getCurrentPosition(
-      function(p){ POS={lat:p.coords.latitude,lon:p.coords.longitude}; document.getElementById('geomsg').innerHTML=''; if(LAST) renderNearest(LAST.payload); },
+      function(p){ POS={lat:p.coords.latitude,lon:p.coords.longitude}; document.getElementById('geomsg').innerHTML=''; if(LAST) renderList(LAST.payload, LAST.source); },
       function(err){ geoFallback('Position indisponible (refusée ou introuvable). '); },
       {enableHighAccuracy:false, timeout:10000, maximumAge:60000}
     );
   });
   document.getElementById('btnAll').addEventListener('click', function(){
     POS=null; document.getElementById('btnAll').style.display='none';
-    if(LAST) renderGrouped(LAST.payload, LAST.source);
+    if(LAST) renderList(LAST.payload, LAST.source);
   });
 
   function load(){
     fetch('./abris.json?t='+Date.now(),{cache:'no-store'})
       .then(function(r){ if(!r.ok)throw 0; return r.json(); })
-      .then(function(d){ try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){} LAST={payload:d,source:'réseau'}; renderGrouped(d,'réseau'); })
-      .catch(function(){ var c=null; try{c=localStorage.getItem(KEY);}catch(e){} if(c){var d=JSON.parse(c); LAST={payload:d,source:'cache'}; renderGrouped(d,'cache');} else { document.getElementById('status').innerHTML='<div class="err">Impossible de charger abris.json, et aucune copie enregistrée.</div>'; } });
+      .then(function(d){ try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){} LAST={payload:d,source:'réseau'}; renderList(d,'réseau'); })
+      .catch(function(){ var c=null; try{c=localStorage.getItem(KEY);}catch(e){} if(c){var d=JSON.parse(c); LAST={payload:d,source:'cache'}; renderList(d,'cache');} else { document.getElementById('status').innerHTML='<div class="err">Impossible de charger abris.json, et aucune copie enregistrée.</div>'; } });
   }
   load();
 </script>
