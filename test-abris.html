@@ -10,19 +10,27 @@
   :root{--ink:#1A2238;--paper:#FBF7F0;--surface:#fff;--line:#E0D5C3;--brand:#5B3499;--muted:#6B6F80;--ok:#2E6F4E;--warn:#C8741A;--no:#A52A2A;}
   *{box-sizing:border-box;}
   body{font-family:'Atkinson',system-ui,sans-serif;background:var(--paper);color:var(--ink);margin:0 auto;padding:18px;line-height:1.4;max-width:760px;}
-  h1{font-size:24px;margin:4px 0 2px;}
+  h1{font-size:23px;margin:4px 0 2px;}
   .ey{color:var(--brand);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
-  .status{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0 22px;font-size:15px;}
+  .status{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0 12px;font-size:15px;}
   .status b{font-size:22px;}
-  .status .src{display:inline-block;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;margin-left:6px;}
+  .src{display:inline-block;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:700;margin-left:6px;}
   .src-net{background:rgba(46,111,79,.15);color:var(--ok);}
   .src-cache{background:rgba(200,116,26,.15);color:var(--warn);}
   .open-now{margin-top:8px;font-weight:700;color:var(--ok);}
+  .geo{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .geo button{font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;border:none;border-radius:12px;padding:12px 16px;background:var(--brand);color:#fff;}
+  .geo button.sec{background:#E9E2F3;color:var(--brand);}
+  .geomsg{background:#E9E2F3;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:15px;}
+  .geomsg .q{font-weight:700;margin-top:6px;}
+  .near{background:rgba(46,111,79,.12);border:1px solid #b9d6c5;border-radius:14px;padding:14px 16px;margin-bottom:16px;}
+  .near b{font-size:18px;}
   .grp-h{font-size:18px;font-weight:700;margin:22px 0 10px;border-bottom:2px solid var(--line);padding-bottom:6px;}
   .grp-h span{color:var(--muted);font-weight:400;font-size:15px;}
   .ab{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
   .ab .nm{font-weight:700;font-size:17px;}
   .ab .meta{font-size:14px;color:var(--muted);margin-top:3px;}
+  .ab .dist{font-weight:700;color:var(--brand);}
   .st{display:inline-block;font-size:13px;font-weight:700;padding:3px 10px;border-radius:10px;margin-bottom:6px;}
   .st-open{background:rgba(46,111,79,.15);color:var(--ok);}
   .st-closed{background:rgba(165,42,42,.12);color:var(--no);}
@@ -39,114 +47,116 @@
 </head>
 <body>
   <div class="ey">Mon cap · page de test</div>
-  <h1>Lecture de abris.json + « ouvert maintenant ? »</h1>
+  <h1>abris.json · ouvert ? · le plus proche</h1>
   <div class="status" id="status">Chargement…</div>
+  <div class="geo">
+    <button id="btnGeo">📍 Trouver les plus proches</button>
+    <button id="btnAll" class="sec" style="display:none">Revenir à la liste complète</button>
+  </div>
+  <div id="geomsg"></div>
   <div id="out"></div>
 
 <script src="./opening_hours.js"></script>
 <script>
-  var KEY = 'moncap:abris';
-  var ORDER = ['pharmacy','metro','mall','library','townhall','community_centre','place_of_worship'];
+  var KEY='moncap:abris';
+  var ORDER=['pharmacy','metro','mall','library','townhall','community_centre','place_of_worship'];
+  var LAST=null, POS=null;
 
-  function fmtDate(iso){
-    try { return new Date(iso).toLocaleString('fr-BE',{dateStyle:'short',timeStyle:'short'}); }
-    catch(e){ return iso || '—'; }
-  }
-
-  // On retire les règles jours fériés (PH/SH) : traités comme jours normaux pour l'instant.
-  function stripHolidays(s){
-    return s.split(';').filter(function(p){ return !/^\s*(PH|SH)\b/.test(p); }).join(';').trim();
-  }
-  // Évalue l'état d'ouverture maintenant. Renvoie true / false / null (non lisible).
-  function evalOH(value){
-    if(typeof opening_hours === 'undefined') return null;
-    try {
-      var oh = new opening_hours(stripHolidays(value));
-      return oh.getState(new Date());
-    } catch(e){ return null; }
-  }
-  // Statut d'un abri : open / closed / garde / unknown
+  function fmtDate(iso){ try{return new Date(iso).toLocaleString('fr-BE',{dateStyle:'short',timeStyle:'short'});}catch(e){return iso||'—';} }
+  function stripHolidays(s){ return s.split(';').filter(function(p){return !/^\s*(PH|SH)\b/.test(p);}).join(';').trim(); }
+  function evalOH(v){ if(typeof opening_hours==='undefined')return null; try{return new opening_hours(stripHolidays(v)).getState(new Date());}catch(e){return null;} }
   function statusOf(a){
-    if(a.dynamic_offhours){           // pharmacies : garde tournante hors horaires réguliers
-      if(a.opening_hours){
-        var s = evalOH(a.opening_hours);
-        if(s===true) return 'open';
-        if(s===false) return 'garde';
-      }
-      return 'unknown';               // horaire régulier inconnu -> pas de promesse
-    }
-    if(!a.opening_hours) return 'unknown';
-    var st = evalOH(a.opening_hours);
-    if(st===true) return 'open';
-    if(st===false) return 'closed';
-    return 'unknown';                 // non lisible -> pas de promesse
+    if(a.dynamic_offhours){ if(a.opening_hours){var s=evalOH(a.opening_hours); if(s===true)return 'open'; if(s===false)return 'garde';} return 'unknown'; }
+    if(!a.opening_hours)return 'unknown';
+    var st=evalOH(a.opening_hours); if(st===true)return 'open'; if(st===false)return 'closed'; return 'unknown';
   }
-  var STATUS = {
-    open:   {txt:'Ouvert maintenant',                      cls:'st-open',   rank:0},
-    garde:  {txt:'Hors horaires — voir pharmacie de garde',cls:'st-garde',  rank:1},
-    unknown:{txt:'Horaire non renseigné',                  cls:'st-unk',    rank:2},
-    closed: {txt:'Fermé maintenant',                       cls:'st-closed', rank:3}
-  };
+  var STATUS={ open:{txt:'Ouvert maintenant',cls:'st-open',rank:0}, garde:{txt:'Hors horaires — voir pharmacie de garde',cls:'st-garde',rank:1}, unknown:{txt:'Horaire non renseigné',cls:'st-unk',rank:2}, closed:{txt:'Fermé maintenant',cls:'st-closed',rank:3} };
+  function wheelchairTag(w){ if(w==='yes')return '<span class="tag t-acc">accessible</span>'; if(w==='limited')return '<span class="tag t-lim">accès limité</span>'; if(w==='no')return '<span class="tag t-no">non accessible</span>'; return '<span class="tag t-unk">accessibilité inconnue</span>'; }
 
-  function wheelchairTag(w){
-    if(w==='yes')    return '<span class="tag t-acc">accessible</span>';
-    if(w==='limited')return '<span class="tag t-lim">accès limité</span>';
-    if(w==='no')     return '<span class="tag t-no">non accessible</span>';
-    return '<span class="tag t-unk">accessibilité inconnue</span>';
+  function distM(la1,lo1,la2,lo2){ var R=6371000,t=Math.PI/180; var dLa=(la2-la1)*t,dLo=(lo2-lo1)*t; var a=Math.pow(Math.sin(dLa/2),2)+Math.cos(la1*t)*Math.cos(la2*t)*Math.pow(Math.sin(dLo/2),2); return 2*R*Math.asin(Math.sqrt(a)); }
+  function distLabel(d){ return d<1000 ? (Math.round(d/10)*10)+' m' : (d/1000).toFixed(1)+' km'; }
+  function walkMin(d){ return Math.max(1, Math.round(d/75)); }
+
+  function abCard(a, withDist){
+    var s=STATUS[a._st], h='<div class="ab"><span class="st '+s.cls+'">'+s.txt+'</span>';
+    if(withDist && a._d!=null) h+=' <span class="dist">· '+distLabel(a._d)+' · ≈ '+walkMin(a._d)+' min</span>';
+    h+='<br><div class="nm">'+a.name+'</div>';
+    if(a.opening_hours) h+='<div class="meta">'+a.opening_hours+'</div>';
+    h+='<div>'+wheelchairTag(a.wheelchair);
+    if(a.toilets) h+='<span class="tag t-info">toilettes</span>';
+    h+='</div></div>'; return h;
   }
 
-  function render(payload, source){
-    var abris = (payload.abris||[]).map(function(a){ a._st = statusOf(a); return a; });
-    var openCount = abris.filter(function(a){return a._st==='open';}).length;
+  function setStatus(payload, source){
+    var open=(payload.abris||[]).filter(function(a){return a._st==='open';}).length;
+    var sc=source==='réseau'?'src-net':'src-cache', sl=source==='réseau'?'réseau':'hors-ligne (dernière copie)';
+    document.getElementById('status').innerHTML='<b>'+(payload.count||payload.abris.length)+'</b> abris · '+(payload.area||'')
+      +'<br>à jour au '+fmtDate(payload.generated_at)+' <span class="src '+sc+'">'+sl+'</span>'
+      +'<div class="open-now">● '+open+' ouverts maintenant</div>';
+  }
 
-    var st = document.getElementById('status');
-    var srcClass = source==='réseau' ? 'src-net' : 'src-cache';
-    var srcLabel = source==='réseau' ? 'réseau' : 'hors-ligne (dernière copie)';
-    st.innerHTML = '<b>'+(payload.count||abris.length)+'</b> abris · '+(payload.area||'')
-      + '<br>à jour au ' + fmtDate(payload.generated_at)
-      + ' <span class="src '+srcClass+'">'+srcLabel+'</span>'
-      + '<div class="open-now">● '+openCount+' ouverts maintenant'
-      + ' <span style="color:var(--muted);font-weight:400">('+fmtDate(new Date().toISOString())+')</span></div>';
-
-    var groups = {};
-    abris.forEach(function(a){ (groups[a.category]=groups[a.category]||[]).push(a); });
-    var cats = ORDER.filter(function(c){return groups[c];})
-      .concat(Object.keys(groups).filter(function(c){return ORDER.indexOf(c)<0;}));
-
-    var html = '';
+  // Vue groupée (sans position)
+  function renderGrouped(payload, source){
+    var abris=(payload.abris||[]).map(function(a){a._st=statusOf(a);return a;});
+    setStatus(payload, source);
+    document.getElementById('geomsg').innerHTML='';
+    var groups={}; abris.forEach(function(a){(groups[a.category]=groups[a.category]||[]).push(a);});
+    var cats=ORDER.filter(function(c){return groups[c];}).concat(Object.keys(groups).filter(function(c){return ORDER.indexOf(c)<0;}));
+    var html='';
     cats.forEach(function(cat){
-      var list = groups[cat].sort(function(x,y){
-        return (STATUS[x._st].rank - STATUS[y._st].rank) || x.name.localeCompare(y.name);
-      });
-      html += '<div class="grp-h">'+(list[0].label_fr||cat)+' <span>· '+list.length+'</span></div>';
-      list.forEach(function(a){
-        var s = STATUS[a._st];
-        html += '<div class="ab">';
-        html += '<span class="st '+s.cls+'">'+s.txt+'</span><br>';
-        html += '<div class="nm">'+a.name+'</div>';
-        if(a.opening_hours) html += '<div class="meta">'+a.opening_hours+'</div>';
-        html += '<div>'+wheelchairTag(a.wheelchair);
-        if(a.toilets) html += '<span class="tag t-info">toilettes</span>';
-        html += '</div></div>';
-      });
+      var list=groups[cat].sort(function(x,y){return (STATUS[x._st].rank-STATUS[y._st].rank)||x.name.localeCompare(y.name);});
+      html+='<div class="grp-h">'+(list[0].label_fr||cat)+' <span>· '+list.length+'</span></div>';
+      list.forEach(function(a){ html+=abCard(a,false); });
     });
-    document.getElementById('out').innerHTML = html;
+    document.getElementById('out').innerHTML=html;
   }
+
+  // Vue par proximité (avec position)
+  function renderNearest(payload){
+    var abris=(payload.abris||[]).map(function(a){a._st=statusOf(a); a._d=distM(POS.lat,POS.lon,a.lat,a.lon); return a;});
+    setStatus(payload,'réseau');
+    abris.sort(function(x,y){return x._d-y._d;});
+    var nearestOpen=abris.filter(function(a){return a._st==='open';})[0];
+    var html='';
+    if(nearestOpen){
+      html+='<div class="near">Le plus proche <b>ouvert</b> : <b>'+nearestOpen.name+'</b><br>'
+        +distLabel(nearestOpen._d)+' · ≈ '+walkMin(nearestOpen._d)+' min · '+(nearestOpen.label_fr||'')+'</div>';
+    } else {
+      html+='<div class="near" style="background:#FBEAD3;border-color:#f0dcbc">Aucun abri <b>ouvert</b> tout près pour l\'instant. Le plus proche est <b>'+abris[0].name+'</b> ('+distLabel(abris[0]._d)+').</div>';
+    }
+    html+='<div class="grp-h">Tous, du plus proche au plus loin <span>· '+abris.length+'</span></div>';
+    abris.forEach(function(a){ html+=abCard(a,true); });
+    document.getElementById('out').innerHTML=html;
+    document.getElementById('btnAll').style.display='';
+  }
+
+  // Repli humain quand la position manque — ne bloque jamais
+  function geoFallback(msg){
+    document.getElementById('geomsg').innerHTML='<div class="geomsg">'+msg
+      +'<div class="q">À montrer à quelqu\'un : « Bonjour, je suis en difficulté. Pouvez-vous m\'aider, s\'il vous plaît ? »</div>'
+      +'La liste complète reste disponible ci-dessous.</div>';
+    if(LAST) renderGrouped(LAST.payload, LAST.source);
+  }
+
+  document.getElementById('btnGeo').addEventListener('click', function(){
+    if(!navigator.geolocation){ geoFallback('La localisation n\'est pas disponible sur cet appareil. '); return; }
+    document.getElementById('geomsg').innerHTML='<div class="geomsg">Recherche de votre position…</div>';
+    navigator.geolocation.getCurrentPosition(
+      function(p){ POS={lat:p.coords.latitude,lon:p.coords.longitude}; document.getElementById('geomsg').innerHTML=''; if(LAST) renderNearest(LAST.payload); },
+      function(err){ geoFallback('Position indisponible (refusée ou introuvable). '); },
+      {enableHighAccuracy:false, timeout:10000, maximumAge:60000}
+    );
+  });
+  document.getElementById('btnAll').addEventListener('click', function(){
+    POS=null; document.getElementById('btnAll').style.display='none';
+    if(LAST) renderGrouped(LAST.payload, LAST.source);
+  });
 
   function load(){
-    fetch('./abris.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-      .then(function(data){
-        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){}
-        render(data, 'réseau');
-      })
-      .catch(function(){
-        var cached = null;
-        try { cached = localStorage.getItem(KEY); } catch(e){}
-        if(cached){ render(JSON.parse(cached), 'cache'); }
-        else { document.getElementById('status').innerHTML =
-          '<div class="err">Impossible de charger abris.json, et aucune copie enregistrée. Connecte-toi une première fois.</div>'; }
-      });
+    fetch('./abris.json?t='+Date.now(),{cache:'no-store'})
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(d){ try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){} LAST={payload:d,source:'réseau'}; renderGrouped(d,'réseau'); })
+      .catch(function(){ var c=null; try{c=localStorage.getItem(KEY);}catch(e){} if(c){var d=JSON.parse(c); LAST={payload:d,source:'cache'}; renderGrouped(d,'cache');} else { document.getElementById('status').innerHTML='<div class="err">Impossible de charger abris.json, et aucune copie enregistrée.</div>'; } });
   }
   load();
 </script>
