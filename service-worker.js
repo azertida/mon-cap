@@ -1,12 +1,14 @@
 // Mon cap — service worker
-// Cache-first sur la coquille de l'app : tout le cœur fonctionne hors-ligne.
-// (Au niveau 2, on ajoutera ici la mise en cache horodatée de abris.json.)
+// Deux stratégies :
+//   • abris.json  -> RÉSEAU-D'ABORD (donnée vivante : fraîche si en ligne, dernière copie sinon)
+//   • le reste    -> CACHE-FIRST   (coquille : HTML, icônes, opening_hours.js, manifeste)
 
-const CACHE = 'mon-cap-v3';
+const CACHE = 'mon-cap-v4';
 const CORE = [
   './',
   './index.html',
   './manifest.json',
+  './opening_hours.js',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png'
 ];
@@ -33,16 +35,36 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
+
+  var url = new URL(e.request.url);
+
+  // --- abris.json : réseau-d'abord ---
+  if (url.pathname.indexOf('abris.json') !== -1) {
+    e.respondWith(
+      fetch(e.request).then(function (resp) {
+        if (resp && resp.ok) {
+          var copy = resp.clone();
+          // on stocke sous une clé canonique (sans ?t=...) pour un repli fiable
+          caches.open(CACHE).then(function (c) { c.put('./abris.json', copy); }).catch(function () {});
+        }
+        return resp;
+      }).catch(function () {
+        // hors-ligne : on rend la dernière copie enregistrée
+        return caches.match('./abris.json');
+      })
+    );
+    return;
+  }
+
+  // --- coquille : cache-first ---
   e.respondWith(
     caches.match(e.request).then(function (hit) {
       if (hit) return hit;
       return fetch(e.request).then(function (resp) {
-        // met en cache au passage (y compris la police), pour le hors-ligne
         var copy = resp.clone();
         caches.open(CACHE).then(function (c) { c.put(e.request, copy); }).catch(function () {});
         return resp;
       }).catch(function () {
-        // hors-ligne et non mis en cache : on retombe sur l'accueil
         return caches.match('./index.html');
       });
     })
