@@ -186,11 +186,8 @@
       <div class="pad">
         <button class="back" onclick="go('home')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Retour</button>
         <h2 class="scr-title">Je ne peux plus avancer</h2>
-        <p class="prio">Choisissez ce qui vous aide</p>
-        <a class="act a-abri" href="#" onclick="return false;">
-          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>
-          <span><span class="t1">M'asseoir tout près</span><span class="t2">Bibliothèque · 3 min · siège</span></span>
-        </a>
+        <p class="prio" id="s2prio">M'abriter</p>
+        <div id="s2abris"><div class="note">Un instant…</div></div>
         <a class="act a-stop" href="#" onclick="return false;">
           <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13l-4-4M16 12l-4 4M21 5v14"/></svg></span>
           <span><span class="t1">Trouver une autre route</span><span class="t2">Sans escalier ni longue marche</span></span>
@@ -275,10 +272,12 @@
     </section>
   </div>
 
+<script src="./opening_hours.js"></script>
 <script>
   function go(id){
     document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
     var el=document.getElementById(id);el.classList.add('active');el.scrollTop=0;
+    if(id==='s2') enterS2();
   }
   function goS1(){ s1reset(); go('s1'); }
   function s1ans(a){
@@ -290,6 +289,72 @@
     document.getElementById('s1q').classList.remove('hidden');
     document.getElementById('s1oui').classList.add('hidden');
     document.getElementById('s1non').classList.add('hidden');
+  }
+
+  // ---- Données réelles : abris.json + « ouvert ? » + « le plus proche » ----
+  function stripHolidays(s){ return s.split(';').filter(function(p){return !/^\s*(PH|SH)\b/.test(p);}).join(';').trim(); }
+  function evalOH(v){ if(typeof opening_hours==='undefined') return null; try{ return new opening_hours(stripHolidays(v)).getState(new Date()); }catch(e){ return null; } }
+  function statusOf(a){
+    if(a.dynamic_offhours){ if(a.opening_hours){ var s=evalOH(a.opening_hours); if(s===true)return 'open'; if(s===false)return 'garde'; } return 'unknown'; }
+    if(!a.opening_hours) return 'unknown';
+    var st=evalOH(a.opening_hours); if(st===true)return 'open'; if(st===false)return 'closed'; return 'unknown';
+  }
+  function distM(la1,lo1,la2,lo2){ var R=6371000,t=Math.PI/180; var dLa=(la2-la1)*t,dLo=(lo2-lo1)*t; var x=Math.pow(Math.sin(dLa/2),2)+Math.cos(la1*t)*Math.cos(la2*t)*Math.pow(Math.sin(dLo/2),2); return 2*R*Math.asin(Math.sqrt(x)); }
+  function distLabel(d){ return d<1000 ? (Math.round(d/10)*10)+' m' : (d/1000).toFixed(1)+' km'; }
+  function walkMin(d){ return Math.max(1, Math.round(d/75)); }
+
+  function getAbris(){
+    return fetch('./abris.json', {cache:'no-store'})   // le service worker gère réseau-d'abord
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(d){ try{localStorage.setItem('moncap:abris', JSON.stringify(d));}catch(e){} return d.abris||[]; })
+      .catch(function(){ try{ var c=localStorage.getItem('moncap:abris'); if(c) return (JSON.parse(c).abris)||[]; }catch(e){} return null; });
+  }
+
+  function abriCard(a, prominent){
+    var t2 = distLabel(a._d)+' · ≈ '+walkMin(a._d)+' min' + (a._st==='open' ? ' · ouvert' : ' · horaires non garantis');
+    return '<a class="act a-abri" href="#" onclick="return false;"'+(prominent?'':' style="opacity:.92"')+'>'
+      + '<span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg></span>'
+      + '<span><span class="t1">'+a.name+'</span><span class="t2">'+t2+'</span></span></a>';
+  }
+
+  function renderWithPos(abris, lat, lon){
+    var prio=document.getElementById('s2prio'), box=document.getElementById('s2abris');
+    abris.forEach(function(a){ a._st=statusOf(a); a._d=distM(lat,lon,a.lat,a.lon); });
+    var open=abris.filter(function(a){return a._st==='open';}).sort(function(x,y){return x._d-y._d;}).slice(0,3);
+    var html='';
+    if(open.length){
+      prio.textContent='M\'abriter — le plus proche ouvert';
+      open.forEach(function(a,i){ html+=abriCard(a, i===0); });
+    } else {
+      var near=abris.slice().sort(function(x,y){return x._d-y._d;}).slice(0,3);
+      prio.textContent='Aucun ouvert tout près — les plus proches';
+      near.forEach(function(a,i){ html+=abriCard(a, i===0); });
+    }
+    box.innerHTML=html;
+  }
+
+  function renderNoPos(){
+    document.getElementById('s2prio').textContent='M\'abriter';
+    document.getElementById('s2abris').innerHTML='<div class="note">Position indisponible. La phrase à montrer est juste en dessous, et « Appeler Marie » reste disponible.</div>';
+  }
+
+  function enterS2(){
+    var box=document.getElementById('s2abris');
+    document.getElementById('s2prio').textContent='M\'abriter — recherche du plus proche…';
+    box.innerHTML='<div class="note">Un instant…</div>';
+    getAbris().then(function(abris){
+      if(!abris || !abris.length){
+        document.getElementById('s2prio').textContent='M\'abriter';
+        box.innerHTML='<div class="fallback"><p class="lab">Hors-ligne</p><p class="msg">Liste des abris indisponible pour l\'instant. Utilisez « Appeler Marie » ci-dessous.</p></div>';
+        return;
+      }
+      if(!navigator.geolocation){ renderNoPos(); return; }
+      navigator.geolocation.getCurrentPosition(
+        function(p){ renderWithPos(abris, p.coords.latitude, p.coords.longitude); },
+        function(){ renderNoPos(); },
+        {enableHighAccuracy:false, timeout:10000, maximumAge:60000}
+      );
+    });
   }
 
   if ('serviceWorker' in navigator) {
