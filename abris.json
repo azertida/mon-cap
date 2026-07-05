@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-05T08:28:27+00:00",
+  "generated_at": "2026-07-05T17:40:19+00:00",
   "source": "© les contributeurs d'OpenStreetMap (ODbL)",
   "area": "Woluwe-Saint-Lambert",
   "count": 58,
@@ -776,7 +776,7 @@
       "label_fr": "Pharmacie",
       "lat": 50.8460712,
       "lon": 4.4140511,
-      "opening_hours": null,
+      "opening_hours": "Mo-Sa 08:30-12:30, Mo-Fr 08:30-12:30",
       "wheelchair": "inconnu",
       "toilets": null,
       "bench": null,
