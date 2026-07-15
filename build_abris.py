@@ -106,6 +106,20 @@ def yes_or_none(value):
     return None
 
 
+def address_of(tags: dict):
+    """Adresse lisible, convention belge : rue puis numéro (« Tomberg 229 »).
+
+    Utile surtout HORS-LIGNE : quand le bouton « M'y emmener » ne peut pas
+    joindre OpenStreetMap, l'adresse écrite reste lisible et montrable.
+    None si OSM ne renseigne pas la rue — on n'invente pas.
+    """
+    street = tags.get("addr:street")
+    if not street:
+        return None
+    number = tags.get("addr:housenumber")
+    return f"{street} {number}" if number else street
+
+
 def coords(el: dict):
     """Point unique, y compris pour ways/relations (grâce à 'out center')."""
     if "lat" in el and "lon" in el:
@@ -147,6 +161,8 @@ def build(elements: list) -> list:
             "label_fr": meta["label"],
             "lat": lat,
             "lon": lon,
+            # adresse écrite : le repli hors-ligne du bouton « M'y emmener »
+            "address": address_of(tags),
             # horaires RÉGULIERS au format OSM ; à interpréter sur l'appareil
             # avec opening_hours.js (gère jours fériés, saisons…).
             "opening_hours": tags.get("opening_hours"),
@@ -203,6 +219,10 @@ def main() -> None:
     if sans_horaire:
         print(f"  ⚠ {sans_horaire} abris sans horaires renseignés "
               f"(à afficher sans promettre l'ouverture, ou à compléter sur OSM)")
+    sans_adresse = sum(1 for a in abris if not a["address"])
+    if sans_adresse:
+        print(f"  ⚠ {sans_adresse} abris sans adresse "
+              f"(à compléter par la couche curée : c'est le repli hors-ligne)")
 
 
 if __name__ == "__main__":
