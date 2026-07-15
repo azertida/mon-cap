@@ -91,6 +91,9 @@
   .sheet-card{background:var(--paper);width:100%;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));}
   .sheet-close{background:none;border:none;font-family:inherit;font-size:16px;font-weight:700;color:var(--stop);padding:8px 4px;margin:0 0 6px -4px;cursor:pointer;}
   .sheet-nm{font-size:22px;margin:0 0 4px;font-weight:700;}
+  .sheet-addr{font-size:18px;font-weight:700;color:var(--ink);background:var(--surface);border-radius:12px;padding:10px 12px;margin:0 0 10px;}
+  .sheet-addr .lab{display:block;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6B6F80;margin-bottom:2px;}
+  .sheet-note{text-align:center;font-size:14px;color:#6B6F80;margin:6px 0 0;}
   .sheet-st{font-weight:700;margin:0 0 2px;color:var(--abri);}
   .sheet-d{color:#6B6F80;margin:0 0 12px;font-weight:700;}
   .sheet-info{list-style:none;padding:0;margin:0 0 14px;}
@@ -309,8 +312,18 @@
   }
 
   // ---- Données réelles : abris.json + « ouvert ? » + « le plus proche » ----
-  function stripHolidays(s){ return s.split(';').filter(function(p){return !/^\s*(PH|SH)\b/.test(p);}).join(';').trim(); }
-  function evalOH(v){ if(typeof opening_hours==='undefined') return null; try{ return new opening_hours(stripHolidays(v)).getState(new Date()); }catch(e){ return null; } }
+  // Jours fériés belges activés : les règles PH/SH sont désormais évaluées.
+  var BE = { address: { country_code: 'be' } };
+  function evalOH(v){
+    if(typeof opening_hours==='undefined') return null;
+    // "00:00-00:00" : encodage OSM dégénéré (se lit 24h/24). On ne promet rien.
+    if(/00:00\s*-\s*00:00/.test(v)) return null;
+    try{ return new opening_hours(v, BE).getState(new Date()); }
+    catch(e){
+      // horaire illisible (donnée OSM cassée) : on ne promet rien
+      return null;
+    }
+  }
   function statusOf(a){
     if(a.dynamic_offhours){ if(a.opening_hours){ var s=evalOH(a.opening_hours); if(s===true)return 'open'; if(s===false)return 'garde'; } return 'unknown'; }
     if(!a.opening_hours) return 'unknown';
@@ -329,6 +342,8 @@
     var a=S2_LIST[i]; if(!a) return;
     var h='<button class="sheet-close" onclick="closeSheet()">‹ Fermer</button>';
     h+='<h3 class="sheet-nm">'+a.name+'</h3>';
+    // L'adresse écrite : lisible hors-ligne, et montrable à quelqu'un.
+    if(a.address) h+='<p class="sheet-addr"><span class="lab">Adresse</span>'+a.address+'</p>';
     h+='<p class="sheet-st">'+statusText(a._st)+'</p>';
     h+='<p class="sheet-d">'+distLabel(a._d)+' · ≈ '+walkMin(a._d)+' min à pied</p>';
     h+='<ul class="sheet-info">';
@@ -341,6 +356,13 @@
     h+='</ul>';
     if(a.phone) h+='<a class="sheet-tel" href="tel:'+a.phone.replace(/\s/g,'')+'">Appeler : '+a.phone+'</a>';
     h+='<a class="sheet-go" href="'+osmFoot(S2_POS,a)+'" target="_blank" rel="noopener">M\'y emmener (à pied)</a>';
+    // Honnêteté : l'itinéraire a besoin du réseau. L'adresse ci-dessus, non.
+    if(navigator.onLine===false){
+      h+='<p class="sheet-note">Sans réseau, l\'itinéraire ne s\'affichera pas.'
+       + (a.address ? ' Fiez-vous à l\'adresse ci-dessus.' : '') + '</p>';
+    } else {
+      h+='<p class="sheet-note">L\'itinéraire nécessite une connexion.</p>';
+    }
     document.getElementById('sheetBody').innerHTML=h;
     document.getElementById('sheet').classList.add('active');
   }
