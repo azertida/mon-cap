@@ -333,6 +333,10 @@
   function distLabel(d){ return d<1000 ? (Math.round(d/10)*10)+' m' : (d/1000).toFixed(1)+' km'; }
   function walkMin(d){ return Math.max(1, Math.round(d/75)); }
 
+  // Au-delà de ce rayon, un « abri » n'en est plus un : on ne le propose pas.
+  // (abris.json ne couvre que Woluwe-Saint-Lambert ; ailleurs, on doit l'avouer.)
+  var RAYON_M = 1000;
+
   // ---- Fiche abri + itinéraire OSM (à pied) ----
   var S2_LIST=[], S2_POS=null;
   function wheelchairText(w){ return w==='yes'?'Accessible en fauteuil':w==='limited'?'Accès fauteuil limité':w==='no'?'Non accessible en fauteuil':'Accessibilité non renseignée'; }
@@ -385,10 +389,21 @@
   function renderWithPos(abris, lat, lon){
     var prio=document.getElementById('s2prio'), box=document.getElementById('s2abris');
     abris.forEach(function(a){ a._st=statusOf(a); a._d=distM(lat,lon,a.lat,a.lon); });
-    var open=abris.filter(function(a){return a._st==='open';}).sort(function(x,y){return x._d-y._d;}).slice(0,3);
+
+    // On ne propose que ce qui est vraiment atteignable à pied.
+    var proches=abris.filter(function(a){ return a._d<=RAYON_M; });
+    if(!proches.length){
+      prio.textContent='M\'abriter';
+      box.innerHTML='<div class="tint">Aucun abri connu à moins d\'un kilomètre. '
+        + 'Mon cap ne couvre que Woluwe-Saint-Lambert pour l\'instant.</div>';
+      S2_LIST=[];
+      return;
+    }
+
+    var open=proches.filter(function(a){return a._st==='open';}).sort(function(x,y){return x._d-y._d;}).slice(0,3);
     var shown;
     if(open.length){ prio.textContent='M\'abriter — le plus proche ouvert'; shown=open; }
-    else { shown=abris.slice().sort(function(x,y){return x._d-y._d;}).slice(0,3); prio.textContent='Aucun ouvert tout près — les plus proches'; }
+    else { shown=proches.slice().sort(function(x,y){return x._d-y._d;}).slice(0,3); prio.textContent='Aucun ouvert tout près — les plus proches'; }
     S2_LIST=shown; S2_POS={lat:lat,lon:lon};
     var html=''; shown.forEach(function(a,i){ html+=abriCard(a, i===0, i); });
     box.innerHTML=html;
