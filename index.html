@@ -418,19 +418,25 @@
     var box=document.getElementById('s2abris');
     document.getElementById('s2prio').textContent='M\'abriter — recherche du plus proche…';
     box.innerHTML='<div class="note">Un instant…</div>';
+
+    function panne(){
+      document.getElementById('s2prio').textContent='M\'abriter';
+      box.innerHTML='<div class="fallback"><p class="lab">Indisponible</p><p class="msg">La liste des abris n\'a pas pu être chargée. Utilisez « Appeler Marie » ci-dessous, ou la phrase à montrer.</p></div>';
+    }
+
     getAbris().then(function(abris){
-      if(!abris || !abris.length){
-        document.getElementById('s2prio').textContent='M\'abriter';
-        box.innerHTML='<div class="fallback"><p class="lab">Hors-ligne</p><p class="msg">Liste des abris indisponible pour l\'instant. Utilisez « Appeler Marie » ci-dessous.</p></div>';
-        return;
-      }
+      if(!abris || !abris.length){ panne(); return; }
       if(!navigator.geolocation){ renderNoPos(); return; }
       navigator.geolocation.getCurrentPosition(
-        function(p){ renderWithPos(abris, p.coords.latitude, p.coords.longitude); },
+        function(p){
+          // une erreur d'affichage ne doit jamais laisser l'écran figé
+          try { renderWithPos(abris, p.coords.latitude, p.coords.longitude); }
+          catch(e){ renderNoPos(); }
+        },
         function(){ renderNoPos(); },
         {enableHighAccuracy:false, timeout:10000, maximumAge:60000}
       );
-    });
+    }).catch(function(){ panne(); });   // ← le maillon qui manquait
   }
 
   if ('serviceWorker' in navigator) {

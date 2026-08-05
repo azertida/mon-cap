@@ -3,7 +3,7 @@
 //   • abris.json  -> RÉSEAU-D'ABORD (donnée vivante : fraîche si en ligne, dernière copie sinon)
 //   • le reste    -> CACHE-FIRST   (coquille : HTML, icônes, opening_hours.js, manifeste)
 
-const CACHE = 'mon-cap-v10';
+const CACHE = 'mon-cap-v11';
 const CORE = [
   './',
   './index.html',
