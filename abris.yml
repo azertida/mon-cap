@@ -1,0 +1,40 @@
+name: Construire abris.json
+
+on:
+  schedule:
+    # 05h37 et 16h37 UTC — volontairement hors heures rondes (cron « best effort »)
+    - cron: "37 5,16 * * *"
+  workflow_dispatch:   # bouton « Run workflow » dans l'onglet Actions (rattrapage manuel)
+
+permissions:
+  contents: write       # autorise le commit de abris.json
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer openpyxl (lecture de la couche curée)
+        run: pip install --quiet openpyxl
+
+      - name: Construire abris.json
+        run: python build_abris.py --pretty
+
+      - name: Committer uniquement si le fichier a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- abris.json; then
+            echo "Aucun changement dans abris.json — rien à committer."
+          else
+            git add abris.json
+            git commit -m "Mise à jour abris.json ($(date -u +%Y-%m-%dT%H:%MZ))"
+            git push
+          fi

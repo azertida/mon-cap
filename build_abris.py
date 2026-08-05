@@ -194,6 +194,27 @@ def main() -> None:
     print(f"  {len(elements)} éléments bruts reçus")
 
     abris = build(elements)
+    print(f"  {len(abris)} abris récoltés dans OSM")
+
+    # --- couche curée : le curé l'emporte, mais seulement là où il affirme ---
+    import curation
+    cures, ajouts, ecartes, warns = curation.load()
+    if cures or ajouts or ecartes:
+        avant = len(abris)
+        abris = [a for a in abris if a["id"] not in ecartes]
+        print(f"  − {avant - len(abris)} écartés (onglet « {curation.SHEET_INACTIVE} »)")
+        n = 0
+        for a in abris:
+            if a["id"] in cures:
+                curation.overlay(a, cures[a["id"]])
+                n += 1
+        print(f"  ✎ {n} abris corrigés par la couche curée")
+        for cur in ajouts:
+            abris.append(curation.to_abri(cur))
+        print(f"  + {len(ajouts)} ajouts absents d'OSM")
+        abris.sort(key=lambda a: (a["category"], a["name"]))
+    for w in warns:
+        print(f"  ⚠ {w}")
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
